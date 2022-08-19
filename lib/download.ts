@@ -17,10 +17,10 @@ export default (id: string, timestamp: number, jar: CookieJar) =>
                 ffmpeg(Readable.from(audio))
                     .output(tmp)
                     .outputOptions(
-                        '-metadata', `title=${data.title}`,
+                        '-metadata', `title=${id} ${data.title}`,
                         '-metadata', 'artist=joysound',
                         '-metadata', 'album=joysound (main)',
-                        '-metadata', 'disk=1',
+                        '-metadata', 'disc=1',
                         '-metadata', 'genre=karaoke',
                         '-metadata', `lyrics=${JSON.stringify(data)}`,
                     )
