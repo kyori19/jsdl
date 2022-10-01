@@ -20,6 +20,7 @@ export default (id: string, timestamp: number, jar: CookieJar) =>
                         '-metadata', `title=${id} ${data.title}`,
                         '-metadata', 'artist=joysound',
                         '-metadata', 'album=joysound (main)',
+                        '-metadata', 'album_artist=joysound',
                         '-metadata', 'disc=1',
                         '-metadata', 'genre=karaoke',
                         '-metadata', `lyrics=${JSON.stringify(data)}`,
