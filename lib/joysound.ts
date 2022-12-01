@@ -3,18 +3,32 @@ import { XMLParser } from 'fast-xml-parser';
 import fetch from 'node-fetch';
 import { CookieJar } from 'tough-cookie';
 
-export const login = () => fetch('https://www.joysound.com/utasuki/login.htm', {
+const LoginFailedError = new Error('Login failed');
+
+type LoginResponse = {
+    response: string;
+    result: string;
+}
+
+export const login = () => fetch('https://navi-ss.joysound.com/Common/ComProxy', {
     method: 'POST',
     body: (() => {
         const d = new URLSearchParams();
+        d.set('x-jsp-app-name', 'www.joysound.com');
+        d.set('pf_api_nm', 'api/1.0/auth/session');
+        d.set('api_ver', '1');
         d.set('loginId', process.env.LOGIN_ID);
         d.set('password', process.env.PASSWORD);
-        d.set('autoLogin', 'true');
+        d.set('autoLoginFlg', 'true');
         return d;
     })(),
     redirect: 'manual',
 })
     .then(async (res) => {
+        if ((await res.json() as LoginResponse).result !== '0') {
+            throw LoginFailedError;
+        }
+
         const jar = new CookieJar();
         await Promise.all(
             res.headers.raw()['set-cookie'].map((cookie) => jar.setCookie(cookie, res.url)),
@@ -54,6 +68,7 @@ type XMLData = {
         '@_longtone': string;
         '@_yokuyo': string;
         '@_technick3': string;
+        '@_enthusiastically': string;
     };
 };
 
@@ -95,6 +110,7 @@ export const fetchData = async (id: string, timestamp: number, jar: CookieJar) =
         longtone: Number.parseFloat(data['@_longtone']),
         yokuyo: Number.parseFloat(data['@_yokuyo']),
         technique: Number.parseFloat(data['@_technick3']),
+        enthusiasm: Number.parseFloat(data['@_enthusiastically']),
         timestamp: timestamp,
         date: (new Date(timestamp)).toLocaleString('ja-JP', {
             year: 'numeric',
