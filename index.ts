@@ -18,30 +18,33 @@ let latestId;
 
 const process = () => {
     info(`Processing @ ${(new Date()).toISOString()}`);
-    return fetchItem(jar)
-        .catch((err) => {
-            info(`Retrying error: ${err.message}`);
-            return login()
-                .then((newJar) => {
-                    jar = newJar;
-                    return fetchItem(jar);
-                });
-        })
+    return fetchItem()
         .then((item) => {
-            if (latestId === item.analysisId) {
+            if (latestId === item.id) {
                 info('Skipping due to no updates');
                 throw earlyReturn;
             }
             return fetchLatestId()
                 .then((id) => {
-                    if (id === item.analysisId) {
+                    if (id === item.id) {
                         info('Skipping due to already exists');
                         throw earlyReturn;
                     }
                     return item;
                 });
         })
-        .then(async ({ analysisId: id, playDate: timestamp }) => [id, await download(id, timestamp, jar)])
+        .then(async (data) => [
+            data.id,
+            await download(data, jar)
+                .catch((err) => {
+                    info(`Retrying error: ${err.message}`);
+                    return login()
+                        .then((newJar) => {
+                            jar = newJar;
+                            return download(data, jar);
+                        });
+                }),
+        ])
         .then(([id, tmp]) => upload(id, tmp))
         .then((id) => {
             notify(`Uploaded ${id}`);

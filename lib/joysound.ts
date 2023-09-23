@@ -1,7 +1,6 @@
-import CryptoJS from 'crypto-js';
-import { XMLParser } from 'fast-xml-parser';
 import fetch from 'node-fetch';
 import { CookieJar } from 'tough-cookie';
+import * as process from "process";
 
 const LoginFailedError = new Error('Login failed');
 
@@ -37,82 +36,78 @@ export const login = () => fetch('https://navi-ss.joysound.com/Common/ComProxy',
     });
 
 type AnalystResult = {
-    analysisId: string,
-    artistName: string,
-    selSongName: string,
-    playDate: number,
+    anlId: string,
+    singerName: string,
+    songName: string,
+    playDate: string,
+    info2: number,
+    info5: number,
+    info11: number,
+    info18: number,
+    info19: number,
+    info24: number,
 };
 
-const listUrl = 'https://www.joysound.com/api/1.0/member/@me/score/analyses?startIndex=0&count=1&maxPageNum=1';
-export const fetchItem = async (jar: CookieJar) => fetch(listUrl, {
+type AnalystScoreListResponse = {
+    response: {
+        analystScoreList: AnalystResult[];
+    };
+};
+
+const listUrl = 'https://navi-ss.joysound.com/Common/Gene121Wrapping';
+export const fetchItem = async () => fetch(listUrl, {
+    method: 'POST',
     headers: {
-        'Cookie': await jar.getCookieString(listUrl),
-        'X-JSP-APP-NAME': 'www.joysound.com',
+        'X-APPID': '0000200',
+        'X-APPVER': '1.0.0',
+        'X-AUTHFLAG': '1',
+        'X-OSNAME': 'iOS',
+        'X-OSVER': '1.0.0',
+        'X-JSID': process.env.LOGIN_ID,
+        'X-PWD': process.env.PASSWORD,
+        'X-UUID': '000001',
     },
+    body: (() => {
+        const d = new URLSearchParams();
+        d.set('classpath', 'AnalystScore4Service');
+        d.set('method', 'getAnalystScore4ResultList');
+        d.set('type1', 'java.lang.String');
+        d.set('value1', process.env.LOGIN_ID.toUpperCase());
+        d.set('type2', 'java.lang.String');
+        d.set('value2', 'null');
+        d.set('type3', 'ot.model.definition.SortOrder');
+        d.set('value3', 'null');
+        d.set('type4', 'ot.model.Range');
+        d.set('value4', JSON.stringify({ startRecord: 1, maxRecords: 1 }));
+        d.set('api_ver', '1');
+        return d;
+    })(),
 })
     .then((res) => {
         if (!res.ok) {
             throw Error(`Fetch failed with ${res.status}`);
         }
-        return res.json() as Promise<{ analystScoreResults: AnalystResult[] }>;
+        return res.json() as Promise<AnalystScoreListResponse>;
     })
-    .then(({ analystScoreResults: [first] }) => first);
-
-type XMLData = {
-    asdata: {
-        '@_songname': string;
-        '@_snname': string;
-        '@_total': string;
-        '@_theme': string;
-        '@_stable': string;
-        '@_longtone': string;
-        '@_yokuyo': string;
-        '@_technick3': string;
-        '@_enthusiastically': string;
-    };
-};
-
-const dataUrl = 'https://pd.joysound.com/ass/data';
-export const fetchData = async (id: string, timestamp: number, jar: CookieJar) => fetch(dataUrl, {
-    method: 'POST',
-    headers: {
-        'Cookie': await jar.getCookieString(dataUrl),
-    },
-    body: (() => {
-        const d = new URLSearchParams();
-        d.set('asid', id);
-        d.set('fps', '8');
-        return d;
-    })(),
-})
-    .then((res) => res.arrayBuffer())
-    .then((arr) => Buffer.from(arr).toString('base64'))
-    .then(async (str) => {
-        const sessionId = await jar.getCookies(dataUrl)
-            .then((cookies) => cookies.find(({ key }) => key === '_JSPSID').value);
-        return CryptoJS.AES.decrypt(str, CryptoJS.MD5(sessionId), {
-            mode: CryptoJS.mode.ECB,
-            padding: CryptoJS.pad.Pkcs7,
-        })
-            .toString(CryptoJS.enc.Utf8);
-    })
-    .then((xml) => {
-        const parser = new XMLParser({ ignoreAttributes: false });
-        return (parser.parse(xml) as XMLData).asdata;
-    })
+    .then(({ response: { analystScoreList: [first] } }) => first)
     .then((data) => ({
-        title: `${data['@_songname']}／${data['@_snname']}`,
-        name: data['@_songname'],
-        artist: data['@_snname'],
-        total: Number.parseFloat(data['@_total']),
-        theme: Number.parseFloat(data['@_theme']),
-        stable: Number.parseFloat(data['@_stable']),
-        longtone: Number.parseFloat(data['@_longtone']),
-        yokuyo: Number.parseFloat(data['@_yokuyo']),
-        technique: Number.parseFloat(data['@_technick3']),
-        enthusiasm: Number.parseFloat(data['@_enthusiastically']),
-        timestamp: timestamp,
-        date: (new Date(timestamp)).toLocaleString('ja-JP', {
+        id: data.anlId,
+        artist: data.singerName,
+        name: data.songName,
+        timestamp: ((str) =>
+            new Date(`${str.slice(0, 4)}/${str.slice(4, 6)}/${str.slice(6, 8)} ${str.slice(8, 10)}:${str.slice(10, 12)}:${str.slice(12, 14)}`))(data.playDate)
+            .getTime(),
+        total: data.info2,
+        theme: data.info11,
+        stable: data.info19,
+        longtone: data.info18,
+        yokuyo: data.info24,
+        enthusiasm: (data.info5 - 5e4),
+    }))
+    .then((json) => ({
+        ...json,
+        title: `${json.name}／${json.artist}`,
+        date: (new Date(json.timestamp)).toLocaleString('ja-JP', {
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
@@ -121,6 +116,13 @@ export const fetchData = async (id: string, timestamp: number, jar: CookieJar) =
             second: undefined,
             timeZone: 'Asia/Tokyo',
         }),
+        total: json.total / 1e3,
+        theme: json.theme / 1e3,
+        stable: json.stable / 1e3,
+        longtone: json.longtone / 1e3,
+        yokuyo: json.yokuyo / 1e3,
+        technique: (json.total - (json.theme + json.stable + json.longtone + json.yokuyo + json.enthusiasm)) / 1e3,
+        enthusiasm: json.enthusiasm / 1e3,
     }));
 
 const audioUrl = 'https://pd.joysound.com/ass/audio';
