@@ -1,6 +1,7 @@
 import { send } from './lib/discord.js';
 import download from './lib/download.js';
 import { fetchLatestId, upload } from './lib/drive.js';
+import { earlyReturn } from "./lib/errors.js";
 import { fetchItem, login } from './lib/joysound.js';
 
 const info = (message) => {
@@ -10,8 +11,6 @@ const notify = (message) => {
     void send(message, true);
 };
 const error = notify;
-
-const earlyReturn = new Error('Early return');
 
 let jar;
 let latestId;

@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import { CookieJar } from 'tough-cookie';
 import * as process from "process";
+import { earlyReturn } from "./errors.js";
 
 const LoginFailedError = new Error('Login failed');
 
@@ -89,7 +90,12 @@ export const fetchItem = async () => fetch(listUrl, {
         }
         return res.json() as Promise<AnalystScoreListResponse>;
     })
-    .then(({ response: { analystScoreList: [first] } }) => first)
+    .then(({ response: { analystScoreList: list } }) => {
+        if (list.length < 1) {
+            throw earlyReturn;
+        }
+        return list[0];
+    })
     .then((data) => ({
         id: data.anlId,
         artist: data.singerName,
