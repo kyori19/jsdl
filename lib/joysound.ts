@@ -101,7 +101,7 @@ export const fetchItem = async () => fetch(listUrl, {
         artist: data.singerName,
         name: data.songName,
         timestamp: ((str) =>
-            new Date(`${str.slice(0, 4)}/${str.slice(4, 6)}/${str.slice(6, 8)} ${str.slice(8, 10)}:${str.slice(10, 12)}:${str.slice(12, 14)}`))(data.playDate)
+            new Date(`${str.slice(0, 4)}-${str.slice(4, 6)}-${str.slice(6, 8)}T${str.slice(8, 10)}:${str.slice(10, 12)}:${str.slice(12, 14)}+09:00`))(data.playDate)
             .getTime(),
         total: data.info2,
         theme: data.info11,
